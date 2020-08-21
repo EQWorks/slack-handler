@@ -2,11 +2,32 @@ import os
 from logging import Handler, WARNING, INFO, DEBUG
 from time import time
 from typing import Callable
+import base64
+
+try:
+    import simplejson as json
+except ImportError:
+    import json
 
 import requests
 
 
 HOOK = os.getenv('SLACK_WEBHOOK', '')
+
+
+def get_user(eq_jwt: str) -> dict:
+    _, payload, _ = eq_jwt.split('.')
+    payload += '=' * ((4 - len(payload) % 4) % 4)  # apply padding ='s
+    return json.loads(base64.b64decode(payload))
+
+
+# WARNING: mutating
+def add_user_context(context, user, key):
+    if user.get(key):
+        context['elements'].append({
+            'type': 'mrkdwn',
+            'text': f'{key}: {user.get(key)}',
+        })
 
 
 def get_color(levelno: int):
@@ -30,11 +51,14 @@ class SlackHandler(Handler):
         hook: str = HOOK,
         channel: str = None,
         get_color: Callable = get_color,
+        eq_jwt: str = None,
     ):
         Handler.__init__(self)
         self.title = title
         self.hook = hook
         self.channel = channel
+        if eq_jwt:
+            self.user = get_user(eq_jwt)
 
     def emit(self, record):
         try:
@@ -93,6 +117,11 @@ class SlackHandler(Handler):
                     },
                 ],
             }
+            # enrich with EQ JWT user info
+            if self.user:
+                for key in ['email', 'product']:
+                    add_user_context(context, self.user, key)
+
             attachment['blocks'].append(context)
 
             payload = dict(attachments=[attachment])
