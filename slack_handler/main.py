@@ -57,8 +57,7 @@ class SlackHandler(Handler):
         self.title = title
         self.hook = hook
         self.channel = channel
-        if eq_jwt:
-            self.user = get_user(eq_jwt)
+        self.user = get_user(eq_jwt) if eq_jwt else None
 
     def emit(self, record):
         try:
