@@ -55,13 +55,14 @@ class SlackHandler(Handler):
         self.hook = hook
         self.channel = channel
         self.user = get_user(eq_jwt) if eq_jwt else None
+        self.get_color = get_color
         self.client = client
 
     def emit(self, record):
         try:
             stack_trace = self.format(record)
             attachment = {
-                'color': get_color(record.levelno),
+                'color': self.get_color(record.levelno),
                 'blocks': [
                     {
                         'type': 'header',
