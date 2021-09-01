@@ -3,11 +3,7 @@ from logging import Handler, WARNING, INFO, DEBUG
 from time import time
 from typing import Callable
 import base64
-
-try:
-    import simplejson as json
-except ImportError:
-    import json
+import json
 
 import requests
 
@@ -30,7 +26,7 @@ def add_user_context(context, user, key):
         })
 
 
-def get_color(levelno: int):
+def get_color(levelno: int) -> str:
     if levelno > WARNING:
         return '#f00'  # red
     if levelno == WARNING:
@@ -52,18 +48,21 @@ class SlackHandler(Handler):
         channel: str = None,
         get_color: Callable = get_color,
         eq_jwt: str = None,
+        client: requests.Session = requests.Session(),
     ):
         Handler.__init__(self)
         self.title = title
         self.hook = hook
         self.channel = channel
         self.user = get_user(eq_jwt) if eq_jwt else None
+        self.get_color = get_color
+        self.client = client
 
     def emit(self, record):
         try:
             stack_trace = self.format(record)
             attachment = {
-                'color': get_color(record.levelno),
+                'color': self.get_color(record.levelno),
                 'blocks': [
                     {
                         'type': 'header',
@@ -127,7 +126,7 @@ class SlackHandler(Handler):
             if self.channel:
                 payload['channel'] = self.channel
 
-            r = requests.post(self.hook, json=payload)
+            r = self.client.post(self.hook, json=payload)
             r.raise_for_status()
         except Exception as e:
             self.handleError(e)
